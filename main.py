@@ -10,6 +10,7 @@ from nes_py.wrappers import BinarySpaceToDiscreteSpaceEnv
 import gym_super_mario_bros
 
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
+from gym_super_mario_bros.actions import COMPLEX_MOVEMENT
 
 
 class ReplayMemory(object):
@@ -129,19 +130,19 @@ class DQN(object):
 
 			# conv layers
 			step = conv_layer(inputs=step,
-					conv_filters=12, conv_kernel_size=4, conv_strides=(1,1), conv_padding='same',
+					conv_filters=24, conv_kernel_size=4, conv_strides=(1,1), conv_padding='same',
 					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	# (?, 240, 256, 8)
 
 			step = conv_layer(inputs=step,
-					conv_filters=24, conv_kernel_size=6, conv_strides=(2,2), conv_padding='same',
+					conv_filters=32, conv_kernel_size=6, conv_strides=(2,2), conv_padding='same',
 					pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 120, 128, 16)	
 
 			step = conv_layer(inputs=step,
-					conv_filters=36, conv_kernel_size=8, conv_strides=(1,1), conv_padding='same',
+					conv_filters=48, conv_kernel_size=8, conv_strides=(1,1), conv_padding='same',
 					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, 24)
 
 			step = conv_layer(inputs=step,
-					conv_filters=48, conv_kernel_size=8, conv_strides=(2,2), conv_padding='same',
+					conv_filters=72, conv_kernel_size=8, conv_strides=(2,2), conv_padding='same',
 					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, 32)
 
 			step = tf.layers.max_pooling2d(inputs=step, pool_size=(15,16), strides=(1,1), padding='valid')
@@ -150,8 +151,8 @@ class DQN(object):
 			step = tf.squeeze(step, [1, 2])
 
 			# MLP
-			step = tf.layers.dense(step, 96, activation=tf.nn.relu)
-			step = tf.layers.dense(step, 32, activation=tf.nn.relu)
+			step = tf.layers.dense(step, 48, activation=tf.nn.relu)
+			step = tf.layers.dense(step, 24, activation=tf.nn.relu)
 			step = tf.layers.dense(step, action_dim, activation=tf.nn.relu)
 
 			outputs = step
@@ -175,11 +176,17 @@ class DQN(object):
 		return copy_ops
 		
 
-def calc_reward(prev_info, info):
+def calc_reward(prev_info, info, done):
 	if prev_info == None or info == None:
 		return 0
 
 	reward = 0
+
+	if done:
+		if info['flag_get']:
+			reward += 100
+		else:
+			reward -= 1000
 
 	# reach to goal : True / False
 	if prev_info['flag_get'] == False and info['flag_get'] == True:
@@ -233,7 +240,7 @@ def calc_reward(prev_info, info):
 def train_dqn():
 	# gym env
 	env = gym_super_mario_bros.make('SuperMarioBros-v0')
-	env = BinarySpaceToDiscreteSpaceEnv(env, SIMPLE_MOVEMENT)
+	env = BinarySpaceToDiscreteSpaceEnv(env, COMPLEX_MOVEMENT)
 
 	# generate args
 	parser = argparse.ArgumentParser(description="SuperMarioBros")
@@ -287,7 +294,7 @@ def train_dqn():
 			next_state, reward, done, info = env.step(action)
 
 			# re-calculate reward
-			reward = calc_reward(prev_info, info)
+			reward = calc_reward(prev_info, info, done)
 			prev_info = info
 
 			# intermediate rewards
@@ -305,7 +312,8 @@ def train_dqn():
 				continue
 			
 			loss = dqn.train(sess, *replay_memory.get_replays())
-			dqn.update_target(sess)
+			if step % 10 == 0:
+				dqn.update_target(sess)
 
 			if step % 50 == 0:
 				print('{} step : loss({:.4f})'.format(step, loss))
@@ -316,8 +324,55 @@ def train_dqn():
 
 	env.close()
 
+def play_dqn():
+	# gym env
+	env = gym_super_mario_bros.make('SuperMarioBros-v0')
+	env = BinarySpaceToDiscreteSpaceEnv(env, COMPLEX_MOVEMENT)
+
+	# generate args
+	parser = argparse.ArgumentParser(description="SuperMarioBros")
+	parser.add_argument('--replay_memory_total', default=100000, type=int, help="")
+	parser.add_argument('--training_batch_size', default=64, type=int, help="")
+
+	parser.add_argument('--action_dim', default=env.action_space.n, type=int, help="The number of available actions")
+
+	parser.add_argument('--gamma', default=0.9, type=float, help="")
+	parser.add_argument('--learning_rate', default=1e-3, type=float, help="")
+
+	parser.add_argument('--epsilon', default=0.1, type=float, help="")
+
+	args = parser.parse_args()
+
+	# generate tf graph
+	tf.reset_default_graph()
+
+	dqn = DQN(args)
+
+	config = tf.ConfigProto()
+	config.log_device_placement = False
+	config.gpu_options.allow_growth = True
+	with tf.Session(config=config) as sess:
+		saver = tf.train.Saver()
+
+		tf.global_variables_initializer().run()
+		done = True
+		saver.restore(sess,tf.train.latest_checkpoint('./saved_dqn'))
+		
+		for step in range(1000000):
+			if done:
+				state = env.reset()
+
+			action = dqn.next_action(sess, state)
+			next_state, reward, done, info = env.step(action)
+
+			if done:
+				print('aaaaaaaaaaaaaaaaa')
+
+			env.render()
+
 def main():
 	train_dqn()
+#	play_dqn()
 
 if __name__ == '__main__':
 	main()
