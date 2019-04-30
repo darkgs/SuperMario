@@ -1,4 +1,5 @@
 
+import random
 import argparse
 
 import tensorflow as tf
@@ -10,57 +11,153 @@ import gym_super_mario_bros
 
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 
-class CNN(object):
+class ReplayMemory(object):
 	def __init__(self, args):
 		self._args = args
-		self.build_network()
+		self._mem = []
 
-	def __del__(self):
-		pass
+	def __len__(self):
+		return len(self._mem)
 
-	def build_network(self):
-		def conv_layer(inputs=None,
-				conv_filters=8, conv_kernel_size=6, conv_strides=(1,1), conv_padding='same',
-				pool_size=(3,3), pool_strides=(1,1), pool_padding='same'):
-			step = tf.layers.conv2d(inputs=inputs, filters=conv_filters, kernel_size=conv_kernel_size, strides=conv_strides, padding=conv_padding)
-			step = tf.nn.relu(step)
-			step = tf.layers.max_pooling2d(inputs=step, pool_size=pool_size, strides=pool_strides, padding=pool_padding)
+	def push(self, state, action, reward, next_state, done):
+		new_item = (state, action, reward, next_state, 1.0 if done else 0.0)
+		self._mem.append(new_item)
 
-			return step
+		if len(self._mem) > self._args.replay_memory_total:
+			self._mem = self._mem[:self._args.replay_memory_total]
 
-		# input image
-		step = tf.placeholder(tf.float32, shape=[None, 240, 256, 3])
-		self._input = step
+	def get_replays(self, replay_count=None):
+		if replay_count == None:
+			replay_count = self._args.training_batch_size
 
-		# conv layers
-		step = conv_layer(inputs=step,
-				conv_filters=12, conv_kernel_size=4, conv_strides=(1,1), conv_padding='same',
-				pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	# (?, 240, 256, 8)
+		assert(replay_count <= len(self))
 
-		step = conv_layer(inputs=step,
-				conv_filters=24, conv_kernel_size=6, conv_strides=(2,2), conv_padding='same',
-				pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 120, 128, 16)	
+		replays = (np.random.permutation(self._mem))[:replay_count,]
 
-		step = conv_layer(inputs=step,
-				conv_filters=36, conv_kernel_size=8, conv_strides=(1,1), conv_padding='same',
-				pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, 24)
+		b_state = np.stack(replays[:,0].tolist())
+		b_action = replays[:,1]
+		b_reward = replays[:,2]
+		b_next_state = np.stack(replays[:,3].tolist())
+		b_done = replays[:,4]
 
-		step = conv_layer(inputs=step,
-				conv_filters=48, conv_kernel_size=8, conv_strides=(2,2), conv_padding='same',
-				pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, 32)
+		return b_state, b_action, b_reward, b_next_state, b_done
 
-		step = tf.layers.max_pooling2d(inputs=step, pool_size=(15,16), strides=(1,1), padding='valid')
 
-		# feature vector
-		step = tf.squeeze(step, [1, 2])
-		self._output = step
-
-class ReplayMemory(obejct):
+class DQN(object):
 	def __init__(self, args):
-		pass
+		self._args = args
+		self._dict_pred_q = self.build_q_network('pred')
+		self._dict_target_q = self.build_q_network('target')
 
-	def push(self, state, action, reward, next_sate):
-		new_item = (state, action, reward, next_state)
+		self._copy_ops = self.build_copy_ops('pred', 'target')
+		
+		self._dict_optimizer = self.build_optimizer(self._dict_pred_q, self._dict_target_q)
+
+	def train(self, sess, b_state, b_action, b_reward, b_next_state, b_done):
+		feed_dict = {
+			self._dict_optimizer['state']: b_state,
+			self._dict_optimizer['action']: b_action,
+			self._dict_optimizer['reward']: b_reward,
+			self._dict_optimizer['next_state']: b_next_state,
+			self._dict_optimizer['done']: b_done,
+		}
+		loss, _ = sess.run([self._dict_optimizer['loss'], self._dict_optimizer['optimizer']], feed_dict=feed_dict)
+
+		return loss
+
+	def build_optimizer(self, dict_pred_q=None, dict_target_q=None):
+		assert(dict_pred_q!=None and dict_target_q!=None)
+
+		dict_optimizer = {}
+
+		action = tf.placeholder(tf.int32, shape=(None, ))
+		reward = tf.placeholder(tf.float32, shape=(None, ))
+		done = tf.placeholder(tf.float32, shape=(None, ))
+
+		pred_q = tf.reduce_sum(dict_pred_q['outputs'] * tf.one_hot(action, self._args.action_dim, 1.0, 0.0), axis=1)
+		max_target_q = tf.reduce_max(dict_target_q['outputs'], axis=1)
+
+		y = reward + (1.0 - done) * self._args.gamma * max_target_q
+		loss = tf.reduce_mean(tf.square(pred_q - tf.stop_gradient(y)))
+		optimizer = tf.train.AdamOptimizer(self._args.learning_rate).minimize(loss)
+
+		dict_optimizer['state'] = dict_pred_q['inputs']
+		dict_optimizer['action'] = action
+		dict_optimizer['reward'] = reward
+		dict_optimizer['next_state'] = dict_target_q['inputs']
+		dict_optimizer['done'] = done
+
+		dict_optimizer['loss'] = loss
+		dict_optimizer['optimizer'] = optimizer
+
+		return dict_optimizer
+
+	def build_q_network(self, name):
+		dict_outputs = {}
+		with tf.variable_scope(name):
+			action_dim = self._args.action_dim
+
+			# CNN networks
+			def conv_layer(inputs=None,
+					conv_filters=8, conv_kernel_size=6, conv_strides=(1,1), conv_padding='same',
+					pool_size=(3,3), pool_strides=(1,1), pool_padding='same'):
+				step = tf.layers.conv2d(inputs=inputs, filters=conv_filters, kernel_size=conv_kernel_size, strides=conv_strides, padding=conv_padding)
+				step = tf.nn.relu(step)
+				step = tf.layers.max_pooling2d(inputs=step, pool_size=pool_size, strides=pool_strides, padding=pool_padding)
+
+				return step
+
+			# input image
+			step = tf.placeholder(tf.float32, shape=[None, 240, 256, 3])
+			inputs = step
+
+			# conv layers
+			step = conv_layer(inputs=step,
+					conv_filters=12, conv_kernel_size=4, conv_strides=(1,1), conv_padding='same',
+					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	# (?, 240, 256, 8)
+
+			step = conv_layer(inputs=step,
+					conv_filters=24, conv_kernel_size=6, conv_strides=(2,2), conv_padding='same',
+					pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 120, 128, 16)	
+
+			step = conv_layer(inputs=step,
+					conv_filters=36, conv_kernel_size=8, conv_strides=(1,1), conv_padding='same',
+					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, 24)
+
+			step = conv_layer(inputs=step,
+					conv_filters=48, conv_kernel_size=8, conv_strides=(2,2), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, 32)
+
+			step = tf.layers.max_pooling2d(inputs=step, pool_size=(15,16), strides=(1,1), padding='valid')
+
+			# feature vector
+			step = tf.squeeze(step, [1, 2])
+
+			# MLP
+			step = tf.layers.dense(step, 96, activation=tf.nn.relu)
+			step = tf.layers.dense(step, 32, activation=tf.nn.relu)
+			step = tf.layers.dense(step, action_dim, activation=tf.nn.relu)
+
+			outputs = step
+			selected_actions = tf.argmax(step, axis=1)
+
+			dict_outputs['inputs'] = inputs
+			dict_outputs['outputs'] = outputs
+			dict_outputs['selected_actions'] = selected_actions
+
+		return dict_outputs
+
+	def build_copy_ops(self, pred_name, target_name):
+		copy_ops = []
+
+		pred_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=pred_name)
+		target_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope=target_name)
+		
+		for pred_var, target_var in zip(pred_vars, target_vars):
+			copy_ops.append(target_var.assign(pred_var.value()))
+
+		return copy_ops
+		
 
 def main():
 	# gym env
@@ -69,24 +166,44 @@ def main():
 
 	# generate args
 	parser = argparse.ArgumentParser(description="SuperMarioBros")
-	parser.add_argument('--action_count', default=env.action_space.n, type=int, help="The number of available actions")
-	parser.add_argument('--replay_memory_total', default=100000, type=int, help="The number of available actions")
-	args = parser.parse_args()
+	parser.add_argument('--replay_memory_total', default=100000, type=int, help="")
+	parser.add_argument('--training_batch_size', default=64, type=int, help="")
 
-	args.action_count
+	parser.add_argument('--action_dim', default=env.action_space.n, type=int, help="The number of available actions")
+
+	parser.add_argument('--gamma', default=0.9, type=float, help="")
+	parser.add_argument('--learning_rate', default=1e-3, type=float, help="")
+	args = parser.parse_args()
 
 	# generate tf graph
 	tf.reset_default_graph()
 
-	cnn = CNN(args)
+	dqn = DQN(args)
+	replay_memory = ReplayMemory(args)
 
-	done = True
-	for step in range(1):
-		if done:
-			state = env.reset()
-		state, reward, done, info = env.step(env.action_space.sample())
+	# play!
+	config = tf.ConfigProto()
+	config.log_device_placement = False
+	config.gpu_options.allow_growth = True
+	with tf.Session(config=config) as sess:
+		tf.global_variables_initializer().run()
+		done = True
+		for step in range(100000):
+			if done:
+				state = env.reset()
+
+			action = env.action_space.sample()
+			next_state, reward, done, info = env.step(action)
+
+			replay_memory.push(state, action, reward, next_state, done)
+
+			if len(replay_memory) < args.training_batch_size:
+				continue
+			
+			loss = dqn.train(sess, *replay_memory.get_replays())
 
 	env.close()
+
 
 if __name__ == '__main__':
 	main()
