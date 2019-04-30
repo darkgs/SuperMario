@@ -11,6 +11,7 @@ import gym_super_mario_bros
 
 from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 
+
 class ReplayMemory(object):
 	def __init__(self, args):
 		self._args = args
@@ -64,6 +65,16 @@ class DQN(object):
 		loss, _ = sess.run([self._dict_optimizer['loss'], self._dict_optimizer['optimizer']], feed_dict=feed_dict)
 
 		return loss
+
+	def next_action(self, sess, state):
+		b_state = np.expand_dims(state, axis=0)
+
+		feed_dict = {
+			self._dict_pred_q['inputs']: b_state,
+		}
+		actions, = sess.run([self._dict_pred_q['selected_actions']], feed_dict=feed_dict)
+
+		return np.squeeze(actions, axis=0).item()
 
 	def update_target(self, sess):
 		sess.run([self._copy_ops])
@@ -164,7 +175,62 @@ class DQN(object):
 		return copy_ops
 		
 
-def main():
+def calc_reward(prev_info, info):
+	if prev_info == None or info == None:
+		return 0
+
+	reward = 0
+
+	# reach to goal : True / False
+	if prev_info['flag_get'] == False and info['flag_get'] == True:
+		reward += 100
+
+	# mario status : small, tall, fireball
+	if prev_info['status'] != info['status']:
+		status = ['small', 'tall', 'fireball']
+		prev = status.index(prev_info['status'])
+		cur = status.index(info['status'])
+		assert(0 <= prev and prev < len(status) and 0 <= cur and cur < len(status))
+		reward += (cur - prev) * 10
+
+	# current stage : 1, 2, ..., 8
+	info['stage']
+
+	# distance from the start point : integer
+	if prev_info['x_pos'] != info['x_pos']:
+		prev = prev_info['x_pos']
+		cur = info['x_pos']
+		reward += (cur - prev) * 1
+
+	# number of coins : integer
+	if prev_info['coins'] != info['coins']:
+		prev = prev_info['coins']
+		cur = info['coins']
+		reward += (cur - prev) * 5
+
+	# how many lives : integer
+#	info['life']
+#	if prev_info['life'] != info['life']:
+#		prev = prev_info['life']
+#		cur = info['life']
+#		reward += (cur - prev) * 50
+
+	# score : integer
+	info['score']
+
+	# world : integer
+	info['world']
+
+	# remains time : integer
+	if prev_info['time'] != info['time']:
+		prev = prev_info['time']
+		cur = info['time']
+		reward += (cur - prev) * 5
+
+	return reward
+
+	
+def train_dqn():
 	# gym env
 	env = gym_super_mario_bros.make('SuperMarioBros-v0')
 	env = BinarySpaceToDiscreteSpaceEnv(env, SIMPLE_MOVEMENT)
@@ -178,6 +244,9 @@ def main():
 
 	parser.add_argument('--gamma', default=0.9, type=float, help="")
 	parser.add_argument('--learning_rate', default=1e-3, type=float, help="")
+
+	parser.add_argument('--epsilon', default=0.1, type=float, help="")
+
 	args = parser.parse_args()
 
 	# generate tf graph
@@ -191,15 +260,44 @@ def main():
 	config.log_device_placement = False
 	config.gpu_options.allow_growth = True
 	with tf.Session(config=config) as sess:
+		saver = tf.train.Saver()
+
 		tf.global_variables_initializer().run()
 		done = True
-		for step in range(100000):
+		prev_info = None
+		total_reward = 0
+		total_steps = 0
+		state = None
+		next_state = None
+		for step in range(1000000):
+			state = next_state
+
 			if done:
+				prev_info = None
+				total_reward = 0
+				total_steps = 0
 				state = env.reset()
 
-			print(state.shape)
-			action = env.action_space.sample()
+			# e-greedy
+			if random.random() < args.epsilon:
+				action = env.action_space.sample()
+			else:
+				action = dqn.next_action(sess, state)
+
 			next_state, reward, done, info = env.step(action)
+
+			# re-calculate reward
+			reward = calc_reward(prev_info, info)
+			prev_info = info
+
+			# intermediate rewards
+			if total_steps < 100:
+				total_reward += reward
+				total_steps += 1
+			else:
+				print('{} step : recent_avg_reward({:.4f})'.format(step, total_reward/total_steps))
+				total_reward = reward
+				total_steps = 1
 
 			replay_memory.push(state, action, reward, next_state, done)
 
@@ -209,8 +307,17 @@ def main():
 			loss = dqn.train(sess, *replay_memory.get_replays())
 			dqn.update_target(sess)
 
+			if step % 50 == 0:
+				print('{} step : loss({:.4f})'.format(step, loss))
+
+			if step % 1000 == 0:
+				ckpt_path = saver.save(sess, "saved_dqn/train", step)
+				print('saved to {}'.format(ckpt_path))
+
 	env.close()
 
+def main():
+	train_dqn()
 
 if __name__ == '__main__':
 	main()
