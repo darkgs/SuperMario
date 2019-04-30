@@ -24,7 +24,7 @@ class ReplayMemory(object):
 		self._mem.append(new_item)
 
 		if len(self._mem) > self._args.replay_memory_total:
-			self._mem = self._mem[:self._args.replay_memory_total]
+			self._mem = self._mem[-self._args.replay_memory_total : ]
 
 	def get_replays(self, replay_count=None):
 		if replay_count == None:
@@ -65,6 +65,9 @@ class DQN(object):
 
 		return loss
 
+	def update_target(self, sess):
+		sess.run([self._copy_ops])
+
 	def build_optimizer(self, dict_pred_q=None, dict_target_q=None):
 		assert(dict_pred_q!=None and dict_target_q!=None)
 
@@ -74,7 +77,9 @@ class DQN(object):
 		reward = tf.placeholder(tf.float32, shape=(None, ))
 		done = tf.placeholder(tf.float32, shape=(None, ))
 
+		# q(s, a)
 		pred_q = tf.reduce_sum(dict_pred_q['outputs'] * tf.one_hot(action, self._args.action_dim, 1.0, 0.0), axis=1)
+		# max_a'(Q(s', a'))
 		max_target_q = tf.reduce_max(dict_target_q['outputs'], axis=1)
 
 		y = reward + (1.0 - done) * self._args.gamma * max_target_q
@@ -192,6 +197,7 @@ def main():
 			if done:
 				state = env.reset()
 
+			print(state.shape)
 			action = env.action_space.sample()
 			next_state, reward, done, info = env.step(action)
 
@@ -201,9 +207,11 @@ def main():
 				continue
 			
 			loss = dqn.train(sess, *replay_memory.get_replays())
+			dqn.update_target(sess)
 
 	env.close()
 
 
 if __name__ == '__main__':
 	main()
+
