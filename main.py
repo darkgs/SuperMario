@@ -280,7 +280,7 @@ def train_dqn():
 	parser.add_argument('--gamma', default=0.9, type=float, help="")
 	parser.add_argument('--learning_rate', default=1e-3, type=float, help="")
 
-	parser.add_argument('--epsilon', default=0.01, type=float, help="")
+	parser.add_argument('--epsilon', default=0.05, type=float, help="")
 
 	args = parser.parse_args()
 
@@ -307,10 +307,18 @@ def train_dqn():
 		total_steps = 0
 		state = None
 		next_state = None
+		prev_top_record = -1
 		for step in range(1000000):
 			state = next_state
 
 			if done:
+				current_record = top_x_pos / total_steps if total_steps > 0 else 0.0
+				if current_record > prev_top_record:
+					print(current_record, prev_top_record)
+					ckpt_path = saver.save(sess, "saved_top_dqn/train")
+					print('top record! {} saved to {}'.format(prev_top_record, ckpt_path))
+					prev_top_record = current_record
+
 				print("done! at {}".format(top_x_pos))
 				prev_info = None
 				top_x_pos = -1
@@ -319,6 +327,7 @@ def train_dqn():
 				total_reward = 0
 				total_steps = 0
 				state = env.reset()
+
 
 			# e-greedy
 			if random.random() < args.epsilon:
@@ -343,14 +352,8 @@ def train_dqn():
 			prev_info = info
 			top_x_pos = max(top_x_pos, info['x_pos'])
 
-			# intermediate rewards
-			if total_steps < 100:
-				total_reward += reward
-				total_steps += 1
-			else:
-				print('{} step : recent_avg_reward({:.4f})'.format(step, total_reward/total_steps))
-				total_reward = reward
-				total_steps = 1
+			# total steps
+			total_steps += 1
 
 			replay_memory.push(state, action, reward, next_state, done)
 
@@ -403,7 +406,7 @@ def play_dqn():
 		tf.global_variables_initializer().run()
 		tf.local_variables_initializer().run()
 		done = True
-#saver.restore(sess,tf.train.latest_checkpoint('./saved_dqn'))
+		saver.restore(sess,tf.train.latest_checkpoint('./saved_top_dqn'))
 		
 		for step in range(1000000):
 			if done:
