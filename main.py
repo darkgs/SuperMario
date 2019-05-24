@@ -130,29 +130,40 @@ class DQN(object):
 
 			# conv layers
 			step = conv_layer(inputs=step,
-					conv_filters=24, conv_kernel_size=4, conv_strides=(1,1), conv_padding='same',
-					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	# (?, 240, 256, 8)
+					conv_filters=24, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
+					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, 24)
 
 			step = conv_layer(inputs=step,
-					conv_filters=32, conv_kernel_size=6, conv_strides=(2,2), conv_padding='same',
-					pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 120, 128, 16)	
+					conv_filters=32, conv_kernel_size=3, conv_strides=(2,2), conv_padding='same',
+					pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 120, 128, 32)	
 
 			step = conv_layer(inputs=step,
-					conv_filters=48, conv_kernel_size=8, conv_strides=(1,1), conv_padding='same',
-					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, 24)
+					conv_filters=48, conv_kernel_size=5, conv_strides=(1,1), conv_padding='same',
+					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, 48)
 
 			step = conv_layer(inputs=step,
-					conv_filters=72, conv_kernel_size=8, conv_strides=(2,2), conv_padding='same',
-					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, 32)
+					conv_filters=48, conv_kernel_size=3, conv_strides=(2,2), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, 48)
 
-			step = tf.layers.max_pooling2d(inputs=step, pool_size=(15,16), strides=(1,1), padding='valid')
+			step = conv_layer(inputs=step,
+					conv_filters=72, conv_kernel_size=5, conv_strides=(1,1), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 8, 8, 72)
+
+#			step = conv_layer(inputs=step,
+#					conv_filters=92, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
+#					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 2, 2, 96)
+#
+#			step = conv_layer(inputs=step,
+#					conv_filters=128, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
+#					pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 1, 1, 128)
+
+			step = tf.reshape(step, [-1, 8*8*72])
 
 			# feature vector
-			step = tf.squeeze(step, [1, 2])
+#step = tf.squeeze(step, [1, 2])
 
 			# MLP
 			step = tf.layers.dense(step, 48, activation=tf.nn.relu)
-			step = tf.layers.dense(step, 24, activation=tf.nn.relu)
 			step = tf.layers.dense(step, action_dim, activation=tf.nn.relu)
 
 			outputs = step
@@ -174,6 +185,17 @@ class DQN(object):
 			copy_ops.append(target_var.assign(pred_var.value()))
 
 		return copy_ops
+
+def calc_simple_reward(prev_x_pos, x_pos, done):
+
+	if prev_x_pos < 0:
+		return 0
+
+	if int(x_pos / 20) > int(prev_x_pos / 20):
+		print(x_pos, prev_x_pos)
+		return 10
+
+	return 0
 		
 
 def calc_reward(prev_info, info, done):
@@ -181,6 +203,12 @@ def calc_reward(prev_info, info, done):
 		return 0
 
 	reward = 0
+
+	if done:
+		reward = info['x_pos']
+		print(reward)
+
+	return reward
 
 	if done:
 		if info['flag_get']:
@@ -229,10 +257,10 @@ def calc_reward(prev_info, info, done):
 	info['world']
 
 	# remains time : integer
-	if prev_info['time'] != info['time']:
-		prev = prev_info['time']
-		cur = info['time']
-		reward += (cur - prev) * 5
+#	if prev_info['time'] != info['time']:
+#		prev = prev_info['time']
+#		cur = info['time']
+#		reward += (cur - prev) * 5
 
 	return reward
 
@@ -252,7 +280,7 @@ def train_dqn():
 	parser.add_argument('--gamma', default=0.9, type=float, help="")
 	parser.add_argument('--learning_rate', default=1e-3, type=float, help="")
 
-	parser.add_argument('--epsilon', default=0.1, type=float, help="")
+	parser.add_argument('--epsilon', default=0.01, type=float, help="")
 
 	args = parser.parse_args()
 
@@ -272,6 +300,9 @@ def train_dqn():
 		tf.global_variables_initializer().run()
 		done = True
 		prev_info = None
+		top_x_pos = -1
+		prev_x_pos = 0
+		prev_life = -1
 		total_reward = 0
 		total_steps = 0
 		state = None
@@ -280,7 +311,11 @@ def train_dqn():
 			state = next_state
 
 			if done:
+				print("done! at {}".format(top_x_pos))
 				prev_info = None
+				top_x_pos = -1
+				prev_x_pos = 0
+				prev_life = -1
 				total_reward = 0
 				total_steps = 0
 				state = env.reset()
@@ -292,10 +327,21 @@ def train_dqn():
 				action = dqn.next_action(sess, state)
 
 			next_state, reward, done, info = env.step(action)
+			if prev_life < 0:
+				prev_life = info['life']
+
+			x_pos = int(info['x_pos'] / 10)
 
 			# re-calculate reward
-			reward = calc_reward(prev_info, info, done)
+			if info['flag_get']:
+				print('FLAG!!! {}, {}'.format(x_pos, prev_x_pos))
+				reward = 10.0
+			else:
+				reward = max((x_pos - prev_x_pos) * 5.0, -20.0)
+			prev_x_pos = x_pos
+
 			prev_info = info
+			top_x_pos = max(top_x_pos, info['x_pos'])
 
 			# intermediate rewards
 			if total_steps < 100:
@@ -316,7 +362,7 @@ def train_dqn():
 				dqn.update_target(sess)
 
 			if step % 50 == 0:
-				print('{} step : loss({:.4f})'.format(step, loss))
+				print('{} step : loss({:.4f}) x_pos({})'.format(step, loss, info['x_pos']))
 
 			if step % 1000 == 0:
 				ckpt_path = saver.save(sess, "saved_dqn/train", step)
@@ -336,10 +382,10 @@ def play_dqn():
 
 	parser.add_argument('--action_dim', default=env.action_space.n, type=int, help="The number of available actions")
 
-	parser.add_argument('--gamma', default=0.9, type=float, help="")
+	parser.add_argument('--gamma', default=0.99, type=float, help="")
 	parser.add_argument('--learning_rate', default=1e-3, type=float, help="")
 
-	parser.add_argument('--epsilon', default=0.1, type=float, help="")
+	parser.add_argument('--epsilon', default=0.05, type=float, help="")
 
 	args = parser.parse_args()
 
@@ -355,8 +401,9 @@ def play_dqn():
 		saver = tf.train.Saver()
 
 		tf.global_variables_initializer().run()
+		tf.local_variables_initializer().run()
 		done = True
-		saver.restore(sess,tf.train.latest_checkpoint('./saved_dqn'))
+#saver.restore(sess,tf.train.latest_checkpoint('./saved_dqn'))
 		
 		for step in range(1000000):
 			if done:
@@ -364,11 +411,10 @@ def play_dqn():
 
 			action = dqn.next_action(sess, state)
 			next_state, reward, done, info = env.step(action)
-
 			if done:
-				print('aaaaaaaaaaaaaaaaa')
+				print(info['x_pos'], done)
 
-			env.render()
+#env.render()
 
 def main():
 	train_dqn()
