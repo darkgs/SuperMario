@@ -356,6 +356,7 @@ def train_dqn():
 			total_steps += 1
 
 			replay_memory.push(state, action, reward, next_state, done)
+			state = next_state
 
 			if len(replay_memory) < args.training_batch_size:
 				continue
@@ -406,7 +407,7 @@ def play_dqn():
 		tf.global_variables_initializer().run()
 		tf.local_variables_initializer().run()
 		done = True
-		saver.restore(sess,tf.train.latest_checkpoint('./saved_top_dqn'))
+		saver.restore(sess,tf.train.latest_checkpoint('./saved_dqn'))
 		
 		for step in range(1000000):
 			if done:
@@ -417,11 +418,13 @@ def play_dqn():
 			if done:
 				print(info['x_pos'], done)
 
-#env.render()
+			state = next_state
+
+			env.render()
 
 def main():
-	train_dqn()
-#	play_dqn()
+#	train_dqn()
+	play_dqn()
 
 if __name__ == '__main__':
 	main()
