@@ -170,7 +170,7 @@ class Mario(object):
 			action = model.next_action(sess, state)
 			next_state, reward, done, info = self._env.step(action)
 
-			if abs(prev_info['x_pos']-info['x_pos']) < 20:
+			if prev_info != None and abs(prev_info['x_pos']-info['x_pos']) < 20:
 				top_x_pos = max(top_x_pos, info['x_pos'])
 			reward = self.get_rewards(prev_info, info)
 			reward_sum += reward
