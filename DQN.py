@@ -90,7 +90,6 @@ class DQN(object):
 			# conv layers
 			magic_number = 0
 			if self._model_name == 'DQN0':
-				print('point 0 {}'.format(self._model_name))
 				step = conv_layer(inputs=step,
 					conv_filters=8, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
 					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, 8)
@@ -110,7 +109,6 @@ class DQN(object):
 				magic_number = 8*8*28
 
 			elif self._model_name == 'DQN1':
-				print('point 1 {}'.format(self._model_name))
 				step = conv_layer(inputs=step,
 					conv_filters=16, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
 					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, x)
@@ -130,7 +128,6 @@ class DQN(object):
 				magic_number = 8*8*48
 
 			elif self._model_name == 'DQN2':
-				print('point 2 {}'.format(self._model_name))
 				step = conv_layer(inputs=step,
 					conv_filters=16, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
 					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, x)
@@ -158,7 +155,6 @@ class DQN(object):
 				magic_number = 8*8*48
 
 			elif self._model_name == 'DQN3':
-				print('point 3 {}'.format(self._model_name))
 				step = conv_layer(inputs=step,
 					conv_filters=8, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
 					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, x)
@@ -185,7 +181,6 @@ class DQN(object):
 
 				magic_number = 8*8*24
 			else:
-				print('point 4 {}'.format(self._model_name))
 				step = conv_layer(inputs=step,
 					conv_filters=8, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
 					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, 8)
