@@ -143,7 +143,7 @@ class Mario(object):
 					print('{} step : loss({:.4f}) x_pos({})'.format(step, loss, info['x_pos']))
 					write_log('saved_{}/loss.txt'.format(model_name), '{},{}'.format(step,loss))
 
-				if step > 0 and step % 1000 == 0:
+				if done:
 					test_x_pos, reward_sum = self.test(sess, model)
 					done = True
 					write_log('saved_{}/reward.txt'.format(model_name), '{},{}'.format(step,reward_sum))
@@ -203,7 +203,7 @@ class Mario(object):
 
 		with tf.Session(config=config) as sess:
 			saver = tf.train.Saver()
-			saver.restore(sess,tf.train.latest_checkpoint('./saved_DQN3/top_65535'))
+			saver.restore(sess,tf.train.latest_checkpoint('./saved_DQN1/top_900'))
 
 			done = True
 
