@@ -29,6 +29,7 @@ parser.add_option('-e', '--epsilon', dest='epsilon', default=0.01, type=float)
 parser.add_option('-s', '--max_steps', dest='max_steps', default=1000000, type=int)
 
 parser.add_option('-m', '--model_name', dest='model_name', default='DQN', type=str)
+parser.add_option('-p', '--play_mode', dest='play_mode', action="store_true")
 
 def write_log(log_file, log):
 
@@ -169,15 +170,50 @@ class Mario(object):
 			action = model.next_action(sess, state)
 			next_state, reward, done, info = self._env.step(action)
 
-			top_x_pos = max(top_x_pos, info['x_pos'])
-			reward = self.get_rewards(prev_info, info)
-			reward_sum += reward
+			if not done:
+				top_x_pos = max(top_x_pos, info['x_pos'])
+				reward = self.get_rewards(prev_info, info)
+				reward_sum += reward
 
 			# next action
 			state = next_state.copy()
 			prev_info = info.copy()
 
 		return top_x_pos, reward_sum
+
+	def play(self, model_name):
+		# generate tf graph
+		tf.reset_default_graph()
+
+		assert(model_name in ['DQN', 'DQN0', 'DQN1', 'DQN2', 'DQN3'])
+
+		if model_name.startswith('DQN'):
+			model = DQN(self._args, model_name)
+		else:
+			assert(False)
+
+		replay_memory = ReplayMemory(self._args)
+
+		config = tf.ConfigProto()
+		config.log_device_placement = False
+		config.gpu_options.allow_growth = True
+
+		with tf.Session(config=config) as sess:
+			saver = tf.train.Saver()
+			saver.restore(sess,tf.train.latest_checkpoint('./saved_DQN3/top_65535'))
+
+			done = True
+
+			while(True):
+				if done:
+					state = self._env.reset().copy()
+				action = model.next_action(sess, state)
+				next_state, reward, done, info = self._env.step(action)
+
+				# next action
+				state = next_state.copy()
+
+				self._env.render()
 
 def main():
 	# gym env
@@ -189,9 +225,13 @@ def main():
 	setattr(options, 'action_dim', env.action_space.n)
 
 	model_name = options.model_name
+	play_mode = options.play_mode
 
 	mario = Mario(options, env)
-	mario.train(model_name)
+	if play_mode:
+		mario.play(model_name)
+	else:
+		mario.train(model_name)
 
 	# close env
 	env.close()
