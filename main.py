@@ -149,7 +149,9 @@ class Mario(object):
 					if test_x_pos > top_x_pos:
 						top_x_pos = test_x_pos
 						ckpt_path = saver.save(sess, 'saved_{}/top_{}/model'.format(model_name, top_x_pos))
-						print('new record! x_pos({}), reward_sum({}), saved : {}'.format(top_x_pos, reward_sum, ckpt_path))
+						print('new record! top_x_pos({}), reward_sum({}), saved : {}'.format(top_x_pos, reward_sum, ckpt_path))
+					else:
+						print('what a shame ! test x_pos is {}'.format(test_x_pos))
 
 				# next action
 				state = next_state.copy()
