@@ -18,15 +18,15 @@ from DQN import DQN
 from ReplayMemory import ReplayMemory
 
 parser = OptionParser()
-parser.add_option('-r', '--replay_memory_total', dest='replay_memory_total',  default=10000, type=int)
-parser.add_option('-t', '--training_batch_size', dest='training_batch_size', default=64, type=int)
+parser.add_option('-r', '--replay_memory_total', dest='replay_memory_total',  default=50000, type=int)
+parser.add_option('-t', '--training_batch_size', dest='training_batch_size', default=16, type=int)
 
 parser.add_option('-g', '--gamma', dest='gamma', default=0.9, type=float)
 parser.add_option('-l', '--learning_rate', dest='learning_rate', default=1e-3, type=float)
 
 parser.add_option('-e', '--epsilon', dest='epsilon', default=0.01, type=float)
 
-parser.add_option('-s', '--max_steps', dest='max_steps', default=100000, type=int)
+parser.add_option('-s', '--max_steps', dest='max_steps', default=1000000, type=int)
 
 parser.add_option('-m', '--model_name', dest='model_name', default='DQN', type=str)
 
