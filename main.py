@@ -28,6 +28,8 @@ parser.add_option('-e', '--epsilon', dest='epsilon', default=0.01, type=float)
 
 parser.add_option('-s', '--max_steps', dest='max_steps', default=100000, type=int)
 
+parser.add_option('-m', '--model_name', dest='model_name', default='DQN', type=str)
+
 def write_log(log_file, log):
 
 	dir_path = os.path.dirname(os.path.abspath(log_file))
@@ -87,10 +89,12 @@ class Mario(object):
 		# generate tf graph
 		tf.reset_default_graph()
 
-		assert(model_name in ['DQN'])
+		assert(model_name in ['DQN', 'DQN0', 'DQN1', 'DQN2', 'DQN3'])
 
-		if model_name == 'DQN':
-			model = DQN(self._args)
+		if model_name.startswith('DQN'):
+			model = DQN(self._args, model_name)
+		else:
+			assert(False)
 
 		replay_memory = ReplayMemory(self._args)
 
@@ -140,11 +144,12 @@ class Mario(object):
 
 				if step > 0 and step % 1000 == 0:
 					test_x_pos, reward_sum = self.test(sess, model)
+					done = True
 					write_log('saved_{}/reward.txt'.format(model_name), '{},{}'.format(step,reward_sum))
 					if test_x_pos > top_x_pos:
 						top_x_pos = test_x_pos
-						print('new record! x_pos({}), reward_sum({}), saved'.format(top_x_pos, reward_sum),
-								ckpt_path = saver.save(sess, 'saved_{}/top_{}'.format(model_name, top_x_pos)))
+						ckpt_path = saver.save(sess, 'saved_{}/top_{}/model'.format(model_name, top_x_pos))
+						print('new record! x_pos({}), reward_sum({}), saved : {}'.format(top_x_pos, reward_sum, ckpt_path))
 
 				# next action
 				state = next_state.copy()
@@ -181,8 +186,10 @@ def main():
 	options, args = parser.parse_args()
 	setattr(options, 'action_dim', env.action_space.n)
 
+	model_name = options.model_name
+
 	mario = Mario(options, env)
-	mario.train('DQN')
+	mario.train(model_name)
 
 	# close env
 	env.close()

@@ -3,8 +3,10 @@ import tensorflow as tf
 import numpy as np
 
 class DQN(object):
-	def __init__(self, args):
+	def __init__(self, args, model_name):
 		self._args = args
+		self._model_name = model_name
+
 		self._dict_pred_q = self.build_q_network('pred')
 		self._dict_target_q = self.build_q_network('target')
 
@@ -86,35 +88,123 @@ class DQN(object):
 			inputs = step
 
 			# conv layers
-			step = conv_layer(inputs=step,
+			magic_number = 0
+			if self._model_name == 'DQN0':
+				print('point 0 {}'.format(self._model_name))
+				step = conv_layer(inputs=step,
 					conv_filters=8, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
 					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, 8)
 
-			step = conv_layer(inputs=step,
+				step = conv_layer(inputs=step,
 					conv_filters=12, conv_kernel_size=3, conv_strides=(2,2), conv_padding='same',
 					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, 12)
 
-			step = conv_layer(inputs=step,
+				step = conv_layer(inputs=step,
 					conv_filters=16, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
 					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, 16)
 
-			step = conv_layer(inputs=step,
+				step = conv_layer(inputs=step,
 					conv_filters=28, conv_kernel_size=3, conv_strides=(1, 1), conv_padding='same',
 					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 8, 8, 28)
 
-#			step = conv_layer(inputs=step,
-#					conv_filters=32, conv_kernel_size=5, conv_strides=(1,1), conv_padding='same',
-#					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 8, 8, 72)
+				magic_number = 8*8*28
 
-#			step = conv_layer(inputs=step,
-#					conv_filters=92, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
-#					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 2, 2, 96)
-#
-#			step = conv_layer(inputs=step,
-#					conv_filters=128, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
-#					pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 1, 1, 128)
+			elif self._model_name == 'DQN1':
+				print('point 1 {}'.format(self._model_name))
+				step = conv_layer(inputs=step,
+					conv_filters=16, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
+					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, x)
 
-			step = tf.reshape(step, [-1, 8*8*28])
+				step = conv_layer(inputs=step,
+					conv_filters=24, conv_kernel_size=3, conv_strides=(2,2), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=32, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
+					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=48, conv_kernel_size=3, conv_strides=(1, 1), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 8, 8, x)
+
+				magic_number = 8*8*48
+
+			elif self._model_name == 'DQN2':
+				print('point 2 {}'.format(self._model_name))
+				step = conv_layer(inputs=step,
+					conv_filters=16, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
+					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=24, conv_kernel_size=3, conv_strides=(2,2), conv_padding='same',
+					pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 120, 128, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=24, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=32, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
+					pool_size=(4,4), pool_strides=(1,1), pool_padding='same')	# (?, 30, 32, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=32, conv_kernel_size=5, conv_strides=(1,1), conv_padding='same',
+					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=48, conv_kernel_size=3, conv_strides=(1, 1), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 8, 8, x)
+
+				magic_number = 8*8*48
+
+			elif self._model_name == 'DQN3':
+				print('point 3 {}'.format(self._model_name))
+				step = conv_layer(inputs=step,
+					conv_filters=8, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
+					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=12, conv_kernel_size=3, conv_strides=(2,2), conv_padding='same',
+					pool_size=(2,2), pool_strides=(1,1), pool_padding='same')	# (?, 120, 128, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=12, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=18, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
+					pool_size=(4,4), pool_strides=(1,1), pool_padding='same')	# (?, 30, 32, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=18, conv_kernel_size=5, conv_strides=(1,1), conv_padding='same',
+					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, x)
+
+				step = conv_layer(inputs=step,
+					conv_filters=24, conv_kernel_size=3, conv_strides=(1, 1), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 8, 8, x)
+
+				magic_number = 8*8*24
+			else:
+				print('point 4 {}'.format(self._model_name))
+				step = conv_layer(inputs=step,
+					conv_filters=8, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
+					pool_size=(3,3), pool_strides=(1,1), pool_padding='same')	#(?, 240, 256, 8)
+
+				step = conv_layer(inputs=step,
+					conv_filters=12, conv_kernel_size=3, conv_strides=(2,2), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 60, 64, 12)
+
+				step = conv_layer(inputs=step,
+					conv_filters=16, conv_kernel_size=5, conv_strides=(2,2), conv_padding='same',
+					pool_size=(4,4), pool_strides=(2,2), pool_padding='same')	# (?, 15, 16, 16)
+
+				step = conv_layer(inputs=step,
+					conv_filters=28, conv_kernel_size=3, conv_strides=(1, 1), conv_padding='same',
+					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 8, 8, 28)
+
+				magic_number = 8*8*28
+
+			step = tf.reshape(step, [-1, magic_number])
 
 			# feature vector
 #step = tf.squeeze(step, [1, 2])
