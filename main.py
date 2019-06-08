@@ -112,6 +112,7 @@ class Mario(object):
 			done = True
 			prev_info = None
 			top_x_pos = -1
+			prev_test_step = -1
 
 			for step in range(self._args.max_steps):
 				if done:
@@ -143,9 +144,10 @@ class Mario(object):
 					print('{} step : loss({:.4f}) x_pos({})'.format(step, loss, info['x_pos']))
 					write_log('saved_{}/loss.txt'.format(model_name), '{},{}'.format(step,loss))
 
-				if done:
+				if done and ((prev_test_step < 0) or (step > prev_test_step + 1000)):
 					test_x_pos, reward_sum = self.test(sess, model)
 					done = True
+					prev_test_step = step
 					write_log('saved_{}/reward.txt'.format(model_name), '{},{}'.format(step,reward_sum))
 					if test_x_pos > top_x_pos:
 						top_x_pos = test_x_pos
