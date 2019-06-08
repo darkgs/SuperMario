@@ -24,7 +24,7 @@ parser.add_option('-t', '--training_batch_size', dest='training_batch_size', def
 parser.add_option('-g', '--gamma', dest='gamma', default=0.9, type=float)
 parser.add_option('-l', '--learning_rate', dest='learning_rate', default=1e-3, type=float)
 
-parser.add_option('-e', '--epsilon', dest='epsilon', default=0.01, type=float)
+parser.add_option('-e', '--epsilon', dest='epsilon', default=0.1, type=float)
 
 parser.add_option('-s', '--max_steps', dest='max_steps', default=1000000, type=int)
 
@@ -120,7 +120,8 @@ class Mario(object):
 					state = self._env.reset().copy()
 
 				# e-greedy
-				if random.random() < self._args.epsilon:
+				if random.random() < (self._args.epsilon * np.exp(-1./50000.*float(step)) + 0.005):
+					print((self._args.epsilon * np.exp(-1./50000.*float(step)) + 0.005))
 					action = self._env.action_space.sample()
 				else:
 					action = model.next_action(sess, state)
