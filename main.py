@@ -7,7 +7,7 @@ from optparse import OptionParser
 import tensorflow as tf
 import numpy as np
 
-from nes_py.wrappers import BinarySpaceToDiscreteSpaceEnv
+from nes_py.wrappers import JoypadSpace
 
 import gym_super_mario_bros
 
@@ -218,7 +218,7 @@ class Mario(object):
 def main():
 	# gym env
 	env = gym_super_mario_bros.make('SuperMarioBros-v0')
-	env = BinarySpaceToDiscreteSpaceEnv(env, SIMPLE_MOVEMENT)
+	env = JoypadSpace(env, SIMPLE_MOVEMENT)
 
 	# generate args
 	options, args = parser.parse_args()
