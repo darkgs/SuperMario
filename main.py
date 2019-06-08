@@ -24,7 +24,7 @@ parser.add_option('-t', '--training_batch_size', dest='training_batch_size', def
 parser.add_option('-g', '--gamma', dest='gamma', default=0.9, type=float)
 parser.add_option('-l', '--learning_rate', dest='learning_rate', default=1e-3, type=float)
 
-parser.add_option('-e', '--epsilon', dest='epsilon', default=0.1, type=float)
+parser.add_option('-e', '--epsilon', dest='epsilon', default=0.01, type=float)
 
 parser.add_option('-s', '--max_steps', dest='max_steps', default=1000000, type=int)
 
@@ -120,8 +120,8 @@ class Mario(object):
 					state = self._env.reset().copy()
 
 				# e-greedy
-				if random.random() < (self._args.epsilon * np.exp(-1./50000.*float(step)) + 0.005):
-					print((self._args.epsilon * np.exp(-1./50000.*float(step)) + 0.005))
+#if random.random() < (self._args.epsilon * np.exp(-1./50000.*float(step)) + 0.005):
+				if random.random() < self._args.epsilon:
 					action = self._env.action_space.sample()
 				else:
 					action = model.next_action(sess, state)
@@ -176,10 +176,10 @@ class Mario(object):
 			if done:
 				break
 
-#if prev_info != None and abs(prev_info['x_pos']-info['x_pos']) < 20:
-			top_x_pos = max(top_x_pos, info['x_pos'])
-			reward = self.get_rewards(prev_info, info)
-			reward_sum += reward
+			if prev_info != None and abs(prev_info['x_pos']-info['x_pos']) < 20:
+				top_x_pos = max(top_x_pos, info['x_pos'])
+				reward = self.get_rewards(prev_info, info)
+				reward_sum += reward
 
 			# next action
 			state = next_state.copy()
