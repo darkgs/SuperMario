@@ -64,6 +64,7 @@ class Mario(object):
 		info['time'] : Integer
 		"""
 		# re-calculate reward
+		reward = 0.0
 		if self._args.reward_mode == 'R0':
 			reward = 0.0
 		elif self._args.reward_mode == 'R1':
