@@ -65,12 +65,13 @@ class Mario(object):
 		"""
 		# re-calculate reward
 		reward = 0.0
+		reward = -1.
 
 		if prev_info == None or info == None:
 			return reward
 
-		x_pos = int(info['x_pos'] / 10)
-		prev_x_pos = int(prev_info['x_pos'] / 10)
+		x_pos = int(info['x_pos'] / 3)
+		prev_x_pos = int(prev_info['x_pos'] / 3)
 
 		c_time = int(info['time'])
 		prev_time = int(prev_info['time'])
