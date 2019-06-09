@@ -31,7 +31,7 @@ parser.add_option('-s', '--max_steps', dest='max_steps', default=1000000, type=i
 
 parser.add_option('-m', '--model_name', dest='model_name', default='DQN', type=str)
 parser.add_option('-p', '--play_mode', dest='play_mode', action="store_true")
-parser.add_option('-r', '--reward_mode', dest='reward_name', default='R0', type=str)
+parser.add_option('-r', '--reward_mode', dest='reward_mode', default='R0', type=str)
 
 def write_log(log_file, log):
 
@@ -64,14 +64,25 @@ class Mario(object):
 		info['time'] : Integer
 		"""
 		# re-calculate reward
-		reward = 0.0
-		reward = -1.
+		if self._args.reward_mode == 'R0':
+			reward = 0.0
+		elif self._args.reward_mode == 'R1':
+			reward = -1.
+		elif self._args.reward_mode == 'R2':
+			reward = -1.
 
 		if prev_info == None or info == None:
 			return reward
 
-		x_pos = int(info['x_pos'] / 3)
-		prev_x_pos = int(prev_info['x_pos'] / 3)
+		if self._args.reward_mode == 'R0':
+			x_pos = int(info['x_pos'] / 10)
+			prev_x_pos = int(prev_info['x_pos'] / 10)
+		elif self._args.reward_mode == 'R1':
+			x_pos = int(info['x_pos'] / 3)
+			prev_x_pos = int(prev_info['x_pos'] / 3)
+		elif self._args.reward_mode == 'R2':
+			x_pos = int(info['x_pos'])
+			prev_x_pos = int(prev_info['x_pos'])
 
 		c_time = int(info['time'])
 		prev_time = int(prev_info['time'])
@@ -102,6 +113,7 @@ class Mario(object):
 			model = SplitDQN(self._args, model_name)
 		else:
 			assert(False)
+		reward_mode = self._args.reward_mode
 
 		replay_memory = ReplayMemory(self._args)
 
@@ -149,16 +161,16 @@ class Mario(object):
 
 				if step % 50 == 0:
 					print('{} step : loss({:.4f}) x_pos({})'.format(step, loss, info['x_pos']))
-					write_log('saved_{}/loss.txt'.format(model_name), '{},{}'.format(step,loss))
+					write_log('saved_{}_{}/loss.txt'.format(model_name, reward_mode), '{},{}'.format(step,loss))
 
 				if done and ((prev_test_step < 0) or (step > prev_test_step + 1000)):
 					test_x_pos, reward_sum = self.test(sess, model)
 					done = True
 					prev_test_step = step
-					write_log('saved_{}/reward.txt'.format(model_name), '{},{}'.format(step,reward_sum))
+					write_log('saved_{}_{}/reward.txt'.format(model_name, reward_mode), '{},{}'.format(step,reward_sum))
 					if test_x_pos > top_x_pos:
 						top_x_pos = test_x_pos
-						ckpt_path = saver.save(sess, 'saved_{}/top_{}/model'.format(model_name, top_x_pos))
+						ckpt_path = saver.save(sess, 'saved_{}_{}/top_{}/model'.format(model_name, reward_mode,  top_x_pos))
 						print('new record! top_x_pos({}), reward_sum({}), saved : {}'.format(top_x_pos, reward_sum, ckpt_path))
 					else:
 						print('what a shame ! test x_pos is {}'.format(test_x_pos))
