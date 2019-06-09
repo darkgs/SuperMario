@@ -15,6 +15,7 @@ from gym_super_mario_bros.actions import SIMPLE_MOVEMENT
 from gym_super_mario_bros.actions import COMPLEX_MOVEMENT
 
 from DQN import DQN
+from SplitDQN import SplitDQN
 from ReplayMemory import ReplayMemory
 
 parser = OptionParser()
@@ -24,7 +25,7 @@ parser.add_option('-t', '--training_batch_size', dest='training_batch_size', def
 parser.add_option('-g', '--gamma', dest='gamma', default=0.9, type=float)
 parser.add_option('-l', '--learning_rate', dest='learning_rate', default=1e-3, type=float)
 
-parser.add_option('-e', '--epsilon', dest='epsilon', default=0.01, type=float)
+parser.add_option('-e', '--epsilon', dest='epsilon', default=0.02, type=float)
 
 parser.add_option('-s', '--max_steps', dest='max_steps', default=1000000, type=int)
 
@@ -90,10 +91,13 @@ class Mario(object):
 		# generate tf graph
 		tf.reset_default_graph()
 
-		assert(model_name in ['DQN', 'DQN0', 'DQN1', 'DQN2', 'DQN3'])
+		assert(model_name in ['DQN', 'DQN0', 'DQN1', 'DQN2', 'DQN3',
+				'SDQN', 'SDQN0', 'SDQN1', 'SDQN2', 'SDQN3'])
 
 		if model_name.startswith('DQN'):
 			model = DQN(self._args, model_name)
+		elif model_name.startswith('SDQN'):
+			model = SplitDQN(self._args, model_name)
 		else:
 			assert(False)
 
@@ -120,8 +124,8 @@ class Mario(object):
 					state = self._env.reset().copy()
 
 				# e-greedy
-#if random.random() < (self._args.epsilon * np.exp(-1./50000.*float(step)) + 0.005):
-				if random.random() < self._args.epsilon:
+#	if random.random() < self._args.epsilon:
+				if random.random() < (self._args.epsilon * np.exp(-1./10000.*float(step)) + 0.005):
 					action = self._env.action_space.sample()
 				else:
 					action = model.next_action(sess, state)
