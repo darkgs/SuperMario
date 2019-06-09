@@ -19,7 +19,7 @@ from SplitDQN import SplitDQN
 from ReplayMemory import ReplayMemory
 
 parser = OptionParser()
-parser.add_option('-r', '--replay_memory_total', dest='replay_memory_total',  default=50000, type=int)
+parser.add_option('-a', '--replay_memory_total', dest='replay_memory_total',  default=50000, type=int)
 parser.add_option('-t', '--training_batch_size', dest='training_batch_size', default=16, type=int)
 
 parser.add_option('-g', '--gamma', dest='gamma', default=0.9, type=float)
@@ -31,6 +31,7 @@ parser.add_option('-s', '--max_steps', dest='max_steps', default=1000000, type=i
 
 parser.add_option('-m', '--model_name', dest='model_name', default='DQN', type=str)
 parser.add_option('-p', '--play_mode', dest='play_mode', action="store_true")
+parser.add_option('-r', '--reward_mode', dest='reward_name', default='R0', type=str)
 
 def write_log(log_file, log):
 
