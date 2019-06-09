@@ -17,6 +17,7 @@ from gym_super_mario_bros.actions import COMPLEX_MOVEMENT
 from DQN import DQN
 from SplitDQN import SplitDQN
 from SADQN import SplitAttnDQN
+from SADQNp import SplitAttnPDQN
 
 from ReplayMemory import ReplayMemory
 
@@ -109,7 +110,8 @@ class Mario(object):
 
 		assert(model_name in ['DQN', 'DQN0', 'DQN1', 'DQN2', 'DQN3',
 				'SDQN', 'SDQN0', 'SDQN1', 'SDQN2', 'SDQN3',
-				'SADQN', 'SADQN0', 'SADQN1', 'SADQN2', 'SADQN3'])
+				'SADQN', 'SADQN0', 'SADQN1', 'SADQN2', 'SADQN3'
+				'SAPDQN', 'SAPDQN0', 'SAPDQN1'])
 
 		if model_name.startswith('DQN'):
 			model = DQN(self._args, model_name)
@@ -117,6 +119,8 @@ class Mario(object):
 			model = SplitDQN(self._args, model_name)
 		elif model_name.startswith('SADQN'):
 			model = SplitAttnDQN(self._args, model_name)
+		elif model_name.startswith('SAPDQN'):
+			model = SplitAttnPDQN(self._args, model_name)
 		else:
 			assert(False)
 		reward_mode = self._args.reward_mode
