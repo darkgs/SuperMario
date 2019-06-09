@@ -2,7 +2,7 @@
 import tensorflow as tf
 import numpy as np
 
-class SplitDQN(object):
+class SplitAttnDQN(object):
 	def __init__(self, args, model_name):
 		self._args = args
 		self._model_name = model_name
@@ -91,10 +91,6 @@ class SplitDQN(object):
 			step_center = step[:,46:110,:,:]
 
 			# conv layers
-#			if self._model_name == 'DQN0':
-#			elif self._model_name == 'DQN1':
-#			elif self._model_name == 'DQN2':
-#			elif self._model_name == 'DQN3':
 			# conv layers for all
 			step = conv_layer(inputs=step,
 					conv_filters=16, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
@@ -120,7 +116,7 @@ class SplitDQN(object):
 					conv_filters=48, conv_kernel_size=3, conv_strides=(1, 1), conv_padding='same',
 					pool_size=(2,2), pool_strides=(2,2), pool_padding='same')	# (?, 8, 8, x)
 
-			if self._model_name == 'SDQN0':
+			if self._model_name == 'SADQN0':
 				# conv layers for down
 				step_down = conv_layer(inputs=step_down,
 					conv_filters=16, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
@@ -175,10 +171,8 @@ class SplitDQN(object):
 				step_down = tf.reshape(step_down, [-1, 8*8, 48])
 				step_center = tf.reshape(step_center, [-1, 8*8, 48])
 
-				step = tf.concat([step, step_down, step_center], axis=1)
-				step = tf.reshape(step, [-1, 192*48])
 
-			elif self._model_name == 'SDQN1':
+			elif self._model_name == 'SADQN1':
 				# conv layers for down
 				step_down = conv_layer(inputs=step_down,
 					conv_filters=8, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
@@ -233,11 +227,7 @@ class SplitDQN(object):
 				step_down = tf.reshape(step_down, [-1, 8*8, 24])
 				step_center = tf.reshape(step_center, [-1, 8*8, 24])
 
-				step_side = tf.concat([step_down, step_center], axis=2)
-				step = tf.concat([step, step_side], axis=1)
-				step = tf.reshape(step, [-1, 128*48])
-
-			elif self._model_name == 'SDQN2':
+			elif self._model_name == 'SADQN2':
 				# conv layers for down
 				step_down = conv_layer(inputs=step_down,
 					conv_filters=8, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
@@ -276,11 +266,7 @@ class SplitDQN(object):
 				step_down = tf.reshape(step_down, [-1, 8*8, 24])
 				step_center = tf.reshape(step_center, [-1, 8*8, 24])
 
-				step_side = tf.concat([step_down, step_center], axis=2)
-				step = tf.concat([step, step_side], axis=1)
-				step = tf.reshape(step, [-1, 128*48])
-
-			elif self._model_name == 'SDQN3':
+			elif self._model_name == 'SADQN3':
 				# conv layers for down
 				step_down = conv_layer(inputs=step_down,
 					conv_filters=16, conv_kernel_size=3, conv_strides=(1,1), conv_padding='same',
@@ -319,8 +305,27 @@ class SplitDQN(object):
 				step_down = tf.reshape(step_down, [-1, 8*8, 48])
 				step_center = tf.reshape(step_center, [-1, 8*8, 48])
 
-				step = tf.concat([step, step_down, step_center], axis=1)
-				step = tf.reshape(step, [-1, 192*48])
+
+			# ATTN
+			all_mean = tf.reduce_mean(step, axis=2)
+			attn_w = tf.Variable(tf.random_normal([64*2,1], stddev=0.35), trainable=True)
+			attn_b = tf.Variable(tf.random_normal([1], stddev=0.35), trainable=True)
+
+			attn_v = []
+			for i in range(step.shape[2]):
+				attn_v.append(tf.matmul(tf.concat([all_mean, step[:,:,i]], axis=1), attn_w) + attn_b)
+
+			for i in range(step_down.shape[2]):
+				attn_v.append(tf.matmul(tf.concat([all_mean, step_down[:,:,i]], axis=1), attn_w) + attn_b)
+
+			for i in range(step_center.shape[2]):
+				attn_v.append(tf.matmul(tf.concat([all_mean, step_center[:,:,i]], axis=1), attn_w) + attn_b)
+
+			attn_v = tf.nn.softmax(tf.stack(attn_v, axis=2), axis=2)
+
+			step = tf.concat([step, step_down, step_center], axis=2)
+			step = attn_v * step
+			step = tf.reshape(step, [-1, step.shape[1]*step.shape[2]])
 
 			# MLP
 			step = tf.layers.dense(step, 128, activation=tf.nn.relu)
