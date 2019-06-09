@@ -215,10 +215,16 @@ class Mario(object):
 		# generate tf graph
 		tf.reset_default_graph()
 
-		assert(model_name in ['DQN', 'DQN0', 'DQN1', 'DQN2', 'DQN3'])
+		assert(model_name in ['DQN', 'DQN0', 'DQN1', 'DQN2', 'DQN3',
+				'SDQN', 'SDQN0', 'SDQN1', 'SDQN2', 'SDQN3',
+				'SADQN', 'SADQN0', 'SADQN1', 'SADQN2', 'SADQN3'])
 
 		if model_name.startswith('DQN'):
 			model = DQN(self._args, model_name)
+		elif model_name.startswith('SDQN'):
+			model = SplitDQN(self._args, model_name)
+		elif model_name.startswith('SADQN'):
+			model = SplitAttnDQN(self._args, model_name)
 		else:
 			assert(False)
 
@@ -230,7 +236,7 @@ class Mario(object):
 
 		with tf.Session(config=config) as sess:
 			saver = tf.train.Saver()
-			saver.restore(sess,tf.train.latest_checkpoint('./saved_DQN1/top_900'))
+			saver.restore(sess,tf.train.latest_checkpoint('./top/top_1439'))
 
 			done = True
 
